@@ -42,7 +42,10 @@ minetest.register_node("cottages:loam", {
 })
 
 -- create stairs if possible
-if( minetest.get_modpath("stairs") and stairs and stairs.register_stair_and_slab) then
+local gameInfo = minetest.get_game_info()
+local isExile = gameInfo.title == "Exile"
+minetest.log('info', 'GameInfo.title = '..gameInfo.title)
+if( minetest.get_modpath("stairs") and stairs and stairs.register_stair_and_slab and not(isExile)) then
 
    stairs.register_stair_and_slab("loam", "cottages:loam",
 		{snappy=2,choppy=2,oddly_breakable_by_hand=2},

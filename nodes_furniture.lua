@@ -14,7 +14,22 @@
 -- TODO: change the textures of the bed (make the clothing white, foot path not entirely covered with cloth)
 
 local S = cottages.S
+-- player_monoids
+local monoids_enabled = minetest.get_modpath('player_monoids')
+-- exile bed_rest
+local bedrest_enabled = minetest.get_modpath('bed_rest')
+-- exile crafting system
+local crafting_enabled = minetest.get_modpath('crafting')
 
+local default_enabled = minetest.get_modpath('default')
+local gameInfo = minetest.get_game_info()
+local isExile = gameInfo.title == "Exile" and minetest.get_modpath('minimal')
+local water_source = 'default:water_source'
+local water_flowing = 'default:water_flowing'
+if isExile then -- use the freshwater node from exile
+	water_source = 'nodes_nature:freshwater_source'
+	water_flowing = 'nodes_nature:freshwater_flowing'
+end
 -- a bed without functionality - just decoration
 minetest.register_node("cottages:bed_foot", {
 	description = S("Bed (foot region)"),
@@ -353,27 +368,32 @@ minetest.register_node("cottages:washing", {
                 on_rightclick = function(pos, node, player)
                    -- works only with water beneath
                    local node_under = minetest.get_node( {x=pos.x, y=(pos.y-1), z=pos.z} );
-		   if( not( node_under ) or node_under.name == "ignore" or (node_under.name ~= 'default:water_source' and node_under.name ~= 'default:water_flowing')) then
+		   if( not( node_under ) or node_under.name == "ignore" or (node_under.name ~= water_source and node_under.name ~= water_flowing)) then
                       minetest.chat_send_player( player:get_player_name(), S("Sorry. This washing place is out of water. Please place it above water!"));
 		   else
                       minetest.chat_send_player( player:get_player_name(), S("You feel much cleaner after some washing."));
+		      -- we can cure fungal infections here
+		      if minetest.get_modpath('health') and HEALTH then
+			      HEALTH.remove_new_effect(player, {"Fungal Infection", 2})
+		      end
 		   end
                 end,
 		is_ground_content = false,
 
 })
 
-
+if isExile then 
+end -- be cool if we could make a clay version that requires firing, but for now we'll need to use granite (maybe limestone later too)
 ---------------------------------------------------------------------------------------
 -- functions for sitting or sleeping
 ---------------------------------------------------------------------------------------
 
 cottages.allow_sit = function( player )
 	-- no check possible
-	if( not( player.get_player_velocity )) then
+	if( not( player.get_velocity )) then
 		return true;
 	end
-	local velo = player:get_player_velocity();
+	local velo = player:get_velocity();
 	if( not( velo )) then
 		return false;
 	end
@@ -390,21 +410,18 @@ cottages.sit_on_bench = function( pos, node, clicker, itemstack, pointed_thing )
 	if( not( clicker ) or not( default.player_get_animation ) or not( cottages.allow_sit( clicker ))) then
 		return;
 	end
+	local ppos = clicker:get_pos()
 
-	local animation = default.player_get_animation( clicker );
-	local pname = clicker:get_player_name();
-
+	local animation = get_animation(clicker)
+	-- local animation = default.player_get_animation( clicker );
 	if( animation and animation.animation=="sit") then
-		default.player_attached[pname] = false
-		clicker:set_pos({x=pos.x,y=pos.y-0.5,z=pos.z})
-		clicker:set_eye_offset({x=0,y=0,z=0}, {x=0,y=0,z=0})
-		clicker:set_physics_override(1, 1, 1)
-		default.player_set_animation(clicker, "stand", 30)
+		-- stand up
+		togglebenchrest(clicker, pos, ppos)
 	else
 		-- the bench is not centered; prevent the player from sitting on air
 		local p2 = {x=pos.x, y=pos.y, z=pos.z};
 		if not( node ) or node.param2 == 0 then
-			p2.z = p2.z+0.3;
+			p2.z = p2.z+0.2;
 		elseif node.param2 == 1 then
 			p2.x = p2.x+0.3;
 		elseif node.param2 == 2 then
@@ -413,13 +430,141 @@ cottages.sit_on_bench = function( pos, node, clicker, itemstack, pointed_thing )
 			p2.x = p2.x-0.3;
 		end
 
-		clicker:set_eye_offset({x=0,y=-7,z=2}, {x=0,y=0,z=0})
-		clicker:set_pos( p2 )
-		default.player_set_animation(clicker, "sit", 30)
-		clicker:set_physics_override(0, 0, 0)
-		default.player_attached[pname] = true
+		-- sit down
+		togglebenchrest(clicker, p2, ppos)
 	end
 end
+
+function get_animation(clicker)
+	local usepapi = minetest.get_modpath('player_api') and player_api and player_api.get_animation
+	local usedef = minetest.get_modpath('default')
+	if usepapi then
+		return player_api.get_animation(clicker)
+	elseif usedef then
+		return default.player_get_animation(clicker)
+	end
+end
+
+function set_animation(clicker, animation)
+	if minetest.get_modpath('player_api') then
+		player_api.set_animation(clicker, animation)
+	elseif minetest.get_modpath('default') then
+		default.player_set_animation(clicker, animation, 30)
+	end
+end
+
+local function benchrest(name, pos, ppos)
+	if not (isExile and minetest.get_modpath('bed_rest')) then return nil end
+	if bed_rest.pos[name] ~= nil or bed_rest.player[name] ~= nil then
+		-- sitting
+		bed_rest.pos[name] = nil
+		bed_rest.bed_position[name] = nil
+		bed_rest.player[name] = nil
+		bed_rest.level[name] = nil
+	else
+		-- standing
+		bed_rest.pos[name] = ppos or pos
+		bed_rest.bed_position[name] = pos
+		bed_rest.player[name] = 1
+		bed_rest.level[name] = 1
+	end
+end
+-- this function sits and stands with bed_rest if available
+function togglebenchrest(clicker, pos, player_pos)
+	local seated_offset = { x = 0, y = -7, z = 2 }
+	if not (isExile) then seated_offset.y = -3 end -- 7 seems too low on minetest game but just right on exile
+	local default_offset = { x = 0, y = 0, z = 0 }
+	local name = clicker:get_player_name()
+	local cur_animation = get_animation(clicker)
+	if isExile and minetest.get_modpath('bed_rest') then
+		for nm, other_pos in pairs(bed_rest.bed_position) do
+			if vector.distance(pos, other_pos) < 0.1 and nm ~= name then
+				minetest.chat_send_player("find another bench")
+				local meta = minetest.get_meta(pos)
+				minimal.infotest_merge(pos, 'Status: Occupied by '..nm, meta)
+			elseif nm == name then
+				detach_player(clicker)
+				local new_pos = bed_rest.pos[name]
+				benchrest(name, pos, new_pos)
+				clear_player_physics(clicker)
+				clicker:set_pos(new_pos)
+				clicker:set_eye_offset(default_offset, default_offset)
+				set_animation(clicker, 'stand')
+				return true
+			else
+				return false
+			end
+		end
+		benchrest(name, pos, player_pos)
+	end
+	if cur_animation.animation == "sit" then
+		detach_player(clicker)
+		clear_player_physics(clicker)
+		clicker:set_eye_offset(default_offset, default_offset)
+		clicker:set_pos({x = pos.x, y = pos.y-0.5, z = pos.z})
+		set_animation(clicker, 'stand')
+	else
+		set_animation(clicker, 'sit')
+		set_player_physics(clicker, 0, 0, 0)
+		attach_player(name)
+		clicker:set_pos(pos)
+		clicker:set_eye_offset(seated_offset, default_offset)
+	end
+end
+
+function attach_player(name)
+	if minetest.get_modpath('player_api') and player_api then
+		player_api.player_attached[name] = true
+	elseif minetest.get_modpath('default') then
+		default.player_attached[name] = true
+	end
+end
+function detach_player(player)
+	local name = player:get_player_name()
+	if minetest.get_modpath('player_api') then
+		player_api.player_attached[name] = false
+	elseif minetest.get_modpath('default') then
+		default.player_attached[pname] = false
+	end
+	player:set_detach()
+end
+
+if monoids_enabled and bedrest_enabled then
+	minetest.register_on_dieplayer(function(player)
+		player_monoids.speed:del_change(player, "bench:resting")
+		player_monoids.jump:del_change(player, "bench:resting")
+		player_monoids.gravity:del_change(player, "bench:resting")
+	end)
+end
+
+function set_player_physics (player, speed, jump, gravity)
+	if minetest.get_modpath('player_monoids') then
+		player_monoids.speed:add_change(player, speed, "bench:resting")
+		player_monoids.jump:add_change(player, jump, "bench:resting")
+		player_monoids.gravity:add_change(player, gravity, "bench:resting")
+	else
+		local pphysics = player:get_physics_override()
+		pphysics.speed = speed
+		pphysics.jump = jump
+		pphysics.gravity = gravity
+		player:set_physics_override(pphysics)
+	end
+end
+
+function clear_player_physics (player)
+	if minetest.get_modpath('player_monoids') then
+		player_monoids.speed:del_change(player, "bench:resting")
+		player_monoids.jump:del_change(player, "bench:resting")
+		player_monoids.gravity:del_change(player, "bench:resting")
+	else
+		local pphysics = player:get_physics_override()
+		pphysics.speed = 1
+		pphysics.jump = 1
+		pphysics.gravity = 1
+		player:set_physics_override(pphysics)
+	end
+end
+
 
 cottages.sleep_in_bed = function( pos, node, clicker, itemstack, pointed_thing )
 	if( not( clicker ) or not( node ) or not( node.name ) or not( pos ) or not( cottages.allow_sit( clicker))) then
@@ -571,76 +716,166 @@ end
 ---------------------------------------------------------------------------------------
 -- crafting receipes
 ---------------------------------------------------------------------------------------
-minetest.register_craft({
-	output = "cottages:bed_foot",
-	recipe = {
-		{cottages.craftitem_wool,    "", "", },
-		{cottages.craftitem_wood,  "", "", },
-		{cottages.craftitem_stick, "", "", }
-	}
-})
+if not (isExile and crafting_enabled) then
+	minetest.register_craft({
+		output = "cottages:bed_foot",
+		recipe = {
+			{cottages.craftitem_wool,    "", "", },
+			{cottages.craftitem_wood,  "", "", },
+			{cottages.craftitem_stick, "", "", }
+		}
+	})
 
-minetest.register_craft({
-	output = "cottages:bed_head",
-	recipe = {
-		{"", "",              cottages.craftitem_wool, },
-		{"", cottages.craftitem_stick, cottages.craftitem_wood, },
-		{"", "",              cottages.craftitem_stick, }
-	}
-})
+	minetest.register_craft({
+		output = "cottages:bed_head",
+		recipe = {
+			{"", "",              cottages.craftitem_wool, },
+			{"", cottages.craftitem_stick, cottages.craftitem_wood, },
+			{"", "",              cottages.craftitem_stick, }
+		}
+	})
 
-minetest.register_craft({
-	output = "cottages:sleeping_mat 3",
-	recipe = {
-		{"cottages:wool_tent", "cottages:straw_mat","cottages:straw_mat" }
-	}
-})
-
-
-minetest.register_craft({
-	output = "cottages:sleeping_mat_head",
-	recipe = {
-		{"cottages:sleeping_mat","cottages:straw_mat" }
-	}
-})
-
-minetest.register_craft({
-	output = "cottages:table",
-	recipe = {
-		{"", cottages.craftitem_slab_wood, "", },
-		{"", cottages.craftitem_stick, "" }
-	}
-})
-
-minetest.register_craft({
-	output = "cottages:bench",
-	recipe = {
-		{"",              cottages.craftitem_wood, "", },
-		{cottages.craftitem_stick, "",             cottages.craftitem_stick, }
-	}
-})
+	minetest.register_craft({
+		output = "cottages:sleeping_mat 3",
+		recipe = {
+			{"cottages:wool_tent", "cottages:straw_mat","cottages:straw_mat" }
+		}
+	})
 
 
-minetest.register_craft({
-	output = "cottages:shelf",
-	recipe = {
-		{cottages.craftitem_stick,  cottages.craftitem_wood, cottages.craftitem_stick, },
-		{cottages.craftitem_stick, cottages.craftitem_wood, cottages.craftitem_stick, },
-		{cottages.craftitem_stick, "",             cottages.craftitem_stick}
-	}
-})
+	minetest.register_craft({
+		output = "cottages:sleeping_mat_head",
+		recipe = {
+			{"cottages:sleeping_mat","cottages:straw_mat" }
+		}
+	})
 
-minetest.register_craft({
-	output = "cottages:washing 2",
-	recipe = {
-		{cottages.craftitem_stick, },
-		{cottages.craftitem_clay,  },
-	}
-})
+	minetest.register_craft({
+		output = "cottages:table",
+		recipe = {
+			{"", cottages.craftitem_slab_wood, "", },
+			{"", cottages.craftitem_stick, "" }
+		}
+	})
 
-minetest.register_craft({
-	output = "cottages:stovepipe 2",
-	recipe = {
-		{cottages.craftitem_steel, '', cottages.craftitem_steel},
-	}
-})
+	minetest.register_craft({
+		output = "cottages:bench",
+		recipe = {
+			{"",              cottages.craftitem_wood, "", },
+			{cottages.craftitem_stick, "",             cottages.craftitem_stick, }
+		}
+	})
+
+
+	minetest.register_craft({
+		output = "cottages:shelf",
+		recipe = {
+			{cottages.craftitem_stick,  cottages.craftitem_wood, cottages.craftitem_stick, },
+			{cottages.craftitem_stick, cottages.craftitem_wood, cottages.craftitem_stick, },
+			{cottages.craftitem_stick, "",             cottages.craftitem_stick}
+		}
+	})
+
+	minetest.register_craft({
+		output = "cottages:washing 2",
+		recipe = {
+			{cottages.craftitem_stick, },
+			{cottages.craftitem_clay,  },
+		}
+	})
+
+	minetest.register_craft({
+		output = "cottages:stovepipe 2",
+		recipe = {
+			{cottages.craftitem_steel, '', cottages.craftitem_steel},
+		}
+	})
+else
+	-- make the bench work like bags and empty water barrels
+	minetest.registered_nodes['cottages:bench'].groups.dig_immediate = 3
+	minetest.registered_nodes['cottages:bench'].stack_max = minimal.stack_max_bulky
+	-- update the tiles to exile textures
+	minetest.registered_nodes['cottages:washing'].tiles = {'nodes_nature_granite.png'} 
+	minetest.registered_nodes['cottages:bench'].tiles = {'tech_primitive_wood.png'}
+	minetest.registered_nodes['cottages:shelf'].tiles = {'tech_oiled_wood.png'}
+	minetest.registered_nodes['cottages:table'].tiles = {'tech_oiled_wood.png'}
+	crafting.register_recipe({
+		type = "chopping_block",
+		output = "cottages:bench",
+		items = {'group:log 1', 'tech:stick 4', 'group:fibrous_plant 4'},
+		level = 1,
+		always_known = true,
+	})
+	-- should have a primitive version
+	crafting.register_recipe({
+		type = "carpentry_bench",
+		output = "cottages:table",
+		items = { 'group:log 2', 'tech:stick', 'tech:vegetable_oil 2' },
+		level = 1,
+		always_known = true,
+	})
+	crafting.register_recipe({
+		type = "carpentry_bench",
+		output = "cottages:shelf",
+		items = { 'group:log 1', 'tech:vegetable_oil' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'anvil',
+		output = 'cottages:stovepipe',
+		items = {'tech:iron_ingot 2'},
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'grinding_stone',
+		output = 'cottages:washing',
+		items = { 'nodes_nature:granite_boulder', 'nodes_nature:sand' },
+		level = 1,
+		always_known = true
+	})
+	-- create some variations
+	local washing = minetest.registered_nodes['cottages:washing']
+	local bench = minetest.registered_nodes['cottages:bench']
+	minetest.register_node('cottages:washing_limestone', {
+		description = S("Limestone Washing Basin"),
+		tiles = {'nodes_nature_limestone.png'},
+		drawtype = washing.drawtype,
+		stack_max = 1,
+		paramtype = washing.paramtype,
+		paramtype2 = washing.paramtype2,
+		groups = washing.groups,
+		node_box = washing.node_box,
+		selection_box = washing.selection_box,
+		on_rightclick = washing.on_rightclick,
+		is_ground_content = washing.is_ground_content
+	})
+	minetest.register_node('cottages:bench_oiled', {
+		description = S("Oiled Wooden Bench"),
+		tiles = {'tech_oiled_wood.png'},
+		drawtype = bench.drawtype,
+		paramtype = bench.paramtype,
+		paramtype2 = bench.paramtype2,
+		groups = bench.groups,
+		node_box = bench.node_box,
+		selection_box = bench.selection_box,
+		on_rightclick = bench.on_rightclick,
+		is_ground_content = bench.is_ground_content
+	})
+
+	crafting.register_recipe({
+		type = 'grinding_stone',
+		output = 'cottages:washing_limestone',
+		items = { 'nodes_nature:limestone_boulder', 'nodes_nature:sand' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'carpentry_bench',
+		output = 'cottages:bench_oiled',
+		items = {'cottages:bench', 'tech:vegetable_oil'},
+		level = 1,
+		always_known = true
+	})
+end

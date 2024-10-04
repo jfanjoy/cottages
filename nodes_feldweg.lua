@@ -511,68 +511,74 @@ elseif( cottages_feldweg_mode == "nodebox" ) then
 elseif( cottages_feldweg_mode == "mesh"
 	or cottages_feldweg_mode == "mesh_incl_45" ) then
 
+local default_enabled = minetest.get_modpath('default')
+local ethereal_enabled = minetest.get_modpath('ethereal')
 
 	local variants = {}
-	variants["grass"] = {
-		"default_grass.png", -- grass top
-		"default_dirt.png", -- bottom
-		"default_dirt.png^default_grass_side.png", -- side
-		"",
-		"default:dirt",
-		"",
-		"cottages_feldweg_end.png",
-		"cottages_feldweg_surface.png^cottages_feldweg_edges.png",
-	}
-	variants["gravel"] = {
-		"default_gravel.png", -- grass top
-		"default_gravel.png", -- bottom
-		"default_gravel.png", -- side
-		"_gravel",
-		"default:gravel",
-		" on gravel",
-		"default_gravel.png",
-		"cottages_feldweg_surface.png^default_gravel.png",
-	}
-	variants["coniferous"] = {
-		"default_coniferous_litter.png", -- grass top
-		"default_dirt.png", -- bottom
-		"default_dirt.png^default_coniferous_litter_side.png", -- side
-		"_coniferous",
-		"default:dirt_with_coniferous_litter",
-		" on coniferious litter",
-		"default_dirt.png^default_coniferous_litter_side.png", -- side with dent
-		"cottages_feldweg_surface.png^default_coniferous_litter.png",
-	}
-	variants["snow"] = {
-		"default_snow.png", -- grass top
-		"default_dirt.png", -- bottom
-		"default_dirt.png^default_snow_side.png", -- side
-		"_snow",
-		"default:dirt_with_snow",
-		" on snow",
-		"default_dirt.png^default_snow_side.png", -- side
-		"cottages_feldweg_surface.png^default_snow.png",
-	}
-	variants["dry"] = {
-		"default_dry_grass.png", -- grass top
-		"default_dirt.png", -- bottom
-		"default_dirt.png^default_dry_grass_side.png", -- side
-		"_dry",
-		"default:dry_dirt",
-		" on dry dirt",
-		"default_dirt.png^default_dry_grass_side.png", -- side
-		"cottages_feldweg_surface.png^default_dry_grass.png",
-	}
-	variants["bamboo"] = {
-		"ethereal_grass_bamboo_top.png", -- grass top
-		"default_dirt.png", -- bottom
-		"default_dirt.png^ethereal_grass_bamboo_side.png", -- side
-		"_bamboo",
-		"ethereal:bamboo_dirt",
-		" on bamboo dirt",
-		"default_dirt.png^ethereal_grass_bamboo_side.png", -- side
-		"cottages_feldweg_surface.png^ethereal_grass_bamboo_top.png",
-	}
+	if default_enabled then
+		variants["grass"] = {
+			"default_grass.png", -- grass top
+			"default_dirt.png", -- bottom
+			"default_dirt.png^default_grass_side.png", -- side
+			"",
+			"default:dirt",
+			"",
+			"cottages_feldweg_end.png",
+			"cottages_feldweg_surface.png^cottages_feldweg_edges.png",
+		}
+		variants["gravel"] = {
+			"default_gravel.png", -- grass top
+			"default_gravel.png", -- bottom
+			"default_gravel.png", -- side
+			"_gravel",
+			"default:gravel",
+			" on gravel",
+			"default_gravel.png",
+			"cottages_feldweg_surface.png^default_gravel.png",
+		}
+		variants["coniferous"] = {
+			"default_coniferous_litter.png", -- grass top
+			"default_dirt.png", -- bottom
+			"default_dirt.png^default_coniferous_litter_side.png", -- side
+			"_coniferous",
+			"default:dirt_with_coniferous_litter",
+			" on coniferious litter",
+			"default_dirt.png^default_coniferous_litter_side.png", -- side with dent
+			"cottages_feldweg_surface.png^default_coniferous_litter.png",
+		}
+		variants["snow"] = {
+			"default_snow.png", -- grass top
+			"default_dirt.png", -- bottom
+			"default_dirt.png^default_snow_side.png", -- side
+			"_snow",
+			"default:dirt_with_snow",
+			" on snow",
+			"default_dirt.png^default_snow_side.png", -- side
+			"cottages_feldweg_surface.png^default_snow.png",
+		}
+		variants["dry"] = {
+			"default_dry_grass.png", -- grass top
+			"default_dirt.png", -- bottom
+			"default_dirt.png^default_dry_grass_side.png", -- side
+			"_dry",
+			"default:dry_dirt",
+			" on dry dirt",
+			"default_dirt.png^default_dry_grass_side.png", -- side
+			"cottages_feldweg_surface.png^default_dry_grass.png",
+		}
+	end
+	if ethereal_enabled then
+		variants["bamboo"] = {
+			"ethereal_grass_bamboo_top.png", -- grass top
+			"default_dirt.png", -- bottom
+			"default_dirt.png^ethereal_grass_bamboo_side.png", -- side
+			"_bamboo",
+			"ethereal:bamboo_dirt",
+			" on bamboo dirt",
+			"default_dirt.png^ethereal_grass_bamboo_side.png", -- side
+			"cottages_feldweg_surface.png^ethereal_grass_bamboo_top.png",
+		}
+	end
 
 	for k, v in pairs(variants) do
 		cottages.register_nodes_mesh(v[4], v[1], v[2], v[3], cottages_feldweg_mode, v[6], v[7], v[8])
@@ -585,7 +591,10 @@ end
 
 
 -- create stairs if possible
-if( minetest.get_modpath("stairs") and stairs and stairs.register_stair_and_slab) then
+local gameInfo = minetest.get_game_info()
+local isExile = gameInfo.title == "Exile"
+minetest.log('info', 'GameInfo.title = '..gameInfo.title)
+if( minetest.get_modpath("stairs") and stairs and stairs.register_stair_and_slab and not(isExile)) then
    stairs.register_stair_and_slab("feldweg", "cottages:feldweg",
 		{snappy=2,choppy=2,oddly_breakable_by_hand=2},
 		{"cottages_feldweg.png","default_dirt.png", "default_grass.png","default_grass.png","cottages_feldweg.png","cottages_feldweg.png"},

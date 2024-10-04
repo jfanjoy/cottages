@@ -1,5 +1,8 @@
 
 
+local default_enabled = minetest.get_modpath('default')
+local carts_enabled = minetest.get_modpath('carts')
+local farming_enabled = minetest.get_modpath('farming')
 ---------------------------------------------------------------------------------------
 -- a rope that is of use to the mines
 ---------------------------------------------------------------------------------------
@@ -28,40 +31,44 @@ minetest.register_node("cottages:rope", {
 		end
 })
 
-minetest.register_craft({
-	output = "cottages:rope",
-	recipe = {
-		{"farming:cotton","farming:cotton","farming:cotton"}
-        }
-})
+if farming_enabled then
+	minetest.register_craft({
+		output = "cottages:rope",
+		recipe = {
+			{"farming:cotton","farming:cotton","farming:cotton"}
+		}
+	})
+end
 
 
+if default_enabled and carts_enabled then
 -- Note: This rope also counts as a rail node; thus, carts can move through it
-minetest.register_node("cottages:ladder_with_rope_and_rail", {
-	description = "Ladder with rail support",
-	drawtype = "signlike",
-	tiles = {"default_ladder_wood.png^carts_rail_straight.png^cottages_rope.png"},
-	inventory_image = "default_ladder_wood.png",
-	wield_image = "default_ladder_wood.png",
-	paramtype = "light",
-	paramtype2 = "wallmounted",
-	sunlight_propagates = true,
-	walkable = false,
-	climbable = true,
-	is_ground_content = false,
-	selection_box = {
-		type = "wallmounted",
-	},
-	groups = {choppy=2,oddly_breakable_by_hand=3,rail=1,connect_to_raillike=1}, --connect_to_raillike=minetest.raillike_group("rail")},
-	legacy_wallmounted = true,
-        sounds = cottages.sounds.wood,
-})
+	minetest.register_node("cottages:ladder_with_rope_and_rail", {
+		description = "Ladder with rail support",
+		drawtype = "signlike",
+		tiles = {"default_ladder_wood.png^carts_rail_straight.png^cottages_rope.png"},
+		inventory_image = "default_ladder_wood.png",
+		wield_image = "default_ladder_wood.png",
+		paramtype = "light",
+		paramtype2 = "wallmounted",
+		sunlight_propagates = true,
+		walkable = false,
+		climbable = true,
+		is_ground_content = false,
+		selection_box = {
+			type = "wallmounted",
+		},
+		groups = {choppy=2,oddly_breakable_by_hand=3,rail=1,connect_to_raillike=1}, --connect_to_raillike=minetest.raillike_group("rail")},
+		legacy_wallmounted = true,
+		sounds = cottages.sounds.wood,
+	})
 
 
 
-minetest.register_craft({
-	output = "cottages:ladder_with_rope_and_rail 3",
-	recipe = {
-		{"default:ladder","cottages:rope", "default:rail"}
-        }
-})
+	minetest.register_craft({
+		output = "cottages:ladder_with_rope_and_rail 3",
+		recipe = {
+			{"default:ladder","cottages:rope", "default:rail"}
+		}
+	})
+end

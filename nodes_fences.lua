@@ -109,51 +109,75 @@ minetest.register_node("cottages:fence_end", {
 		is_ground_content = false,
 })
 
-minetest.register_craft({
-	output = "cottages:fence_small 3",
-	recipe = {
-		{cottages.craftitem_fence, cottages.craftitem_fence},
-	}
-})
+if not (minetest.get_modpath('crafting')) then
+	minetest.register_craft({
+		output = "cottages:fence_small 3",
+		recipe = {
+			{cottages.craftitem_fence, cottages.craftitem_fence},
+		}
+	})
 
--- xfences can be configured to replace normal fences - which makes them uncraftable
-if ( minetest.get_modpath("xfences") ~= nil ) then
-   minetest.register_craft({
-	output = "cottages:fence_small 3",
-	recipe = {
-		{"xfences:fence","xfences:fence" },
-	}
-   })
+	-- xfences can be configured to replace normal fences - which makes them uncraftable
+	if ( minetest.get_modpath("xfences") ~= nil ) then
+		minetest.register_craft({
+			output = "cottages:fence_small 3",
+			recipe = {
+				{"xfences:fence","xfences:fence" },
+			}
+		})
+	end
+
+	minetest.register_craft({
+		output = "cottages:fence_corner",
+		recipe = {
+			{"cottages:fence_small","cottages:fence_small" },
+		}
+	})
+
+	minetest.register_craft({
+		output = "cottages:fence_small 2",
+		recipe = {
+			{"cottages:fence_corner" },
+		}
+	})
+
+	minetest.register_craft({
+		output = "cottages:fence_end",
+		recipe = {
+			{"cottages:fence_small","cottages:fence_small", "cottages:fence_small" },
+		}
+	})
+
+	minetest.register_craft({
+		output = "cottages:fence_small 3",
+		recipe = {
+			{"cottages:fence_end" },
+		}
+	})
+else
+	minetest.registered_nodes['cottages:fence_small'].tiles = {'tech_primitive_wood.png'}
+	minetest.registered_nodes['cottages:fence_end'].tiles = {'tech_primitive_wood.png'}
+	minetest.registered_nodes['cottages:fence_corner'].tiles = {'tech_primitive_wood.png'}
+	-- exile recipes
+	crafting.register_recipe({
+		type = "chopping_block",
+		output = "cottages:fence_small 4",
+		items = { "group:log 1" },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'chopping_block',
+		output = 'cottages:fence_end',
+		items = { 'cottages:fence_small 3' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'chopping_block',
+		output = 'cottages:fence_corner',
+		items = { 'cottages:fence_small 2' },
+		level = 1,
+		always_known = true
+	})
 end
-
-minetest.register_craft({
-	output = "cottages:fence_corner",
-	recipe = {
-		{"cottages:fence_small","cottages:fence_small" },
-	}
-})
-
-minetest.register_craft({
-	output = "cottages:fence_small 2",
-	recipe = {
-		{"cottages:fence_corner" },
-	}
-})
-
-minetest.register_craft({
-	output = "cottages:fence_end",
-	recipe = {
-		{"cottages:fence_small","cottages:fence_small", "cottages:fence_small" },
-	}
-})
-
-minetest.register_craft({
-	output = "cottages:fence_small 3",
-	recipe = {
-		{"cottages:fence_end" },
-	}
-})
-
-
-
-
