@@ -155,10 +155,47 @@ if not (minetest.get_modpath('crafting')) then
 		}
 	})
 else
+	-- exile recipes
 	minetest.registered_nodes['cottages:fence_small'].tiles = {'tech_primitive_wood.png'}
 	minetest.registered_nodes['cottages:fence_end'].tiles = {'tech_primitive_wood.png'}
 	minetest.registered_nodes['cottages:fence_corner'].tiles = {'tech_primitive_wood.png'}
-	-- exile recipes
+	-- create oild variants for fence
+	local basic_fence = minetest.registered_nodes['cottages:fence_small']
+	local basic_fence_end = minetest.registered_nodes['cottages:fence_end']
+	local basic_fence_corner = minetest.registered_nodes['cottages:fence_corner']
+	minetest.register_node('cottages:fence_small_oiled', {
+		description = S("Oiled small fence"),
+		tiles = { 'tech_oiled_wood.png' },
+		drawtype = basic_fence.drawtype,
+		paramtype = basic_fence.paramtype,
+		paramtype2 = basic_fence.paramtype2,
+		groups = basic_fence.groups,
+		node_box = basic_fence.node_box,
+		selection_box = basic_fence.selection_box,
+		is_ground_content = basic_fence.is_ground_content,
+	})
+	minetest.register_node('cottages:fence_end_oiled', {
+		description = S("Oiled fence end"),
+		tiles = { 'tech_oiled_wood.png' },
+		drawtype = basic_fence_end.drawtype,
+		paramtype = basic_fence_end.paramtype,
+		paramtype2 = basic_fence_end.paramtype2,
+		groups = basic_fence_end.groups,
+		node_box = basic_fence_end.node_box,
+		selection_box = basic_fence_end.selection_box,
+		is_ground_content = basic_fence_end.is_ground_content,
+	})
+	minetest.register_node('cottages:fence_corner_oiled', {
+		description = S("Oiled fence corner"),
+		tiles = { 'tech_oiled_wood.png' },
+		drawtype = basic_fence_corner.drawtype,
+		paramtype = basic_fence_corner.paramtype,
+		paramtype2 = basic_fence_corner.paramtype2,
+		groups = basic_fence_corner.groups,
+		node_box = basic_fence_corner.node_box,
+		selection_box = basic_fence_corner.selection_box,
+		is_ground_content = basic_fence_corner.is_ground_content,
+	})
 	crafting.register_recipe({
 		type = "chopping_block",
 		output = "cottages:fence_small 4",
@@ -177,6 +214,48 @@ else
 		type = 'chopping_block',
 		output = 'cottages:fence_corner',
 		items = { 'cottages:fence_small 2' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = "chopping_block",
+		output = "cottages:fence_small_oiled 4",
+		items = { "group:log 1", "tech:vegetable_oil" },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'chopping_block',
+		output = 'cottages:fence_end_oiled',
+		items = { 'cottages:fence_small_oiled 3' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'chopping_block',
+		output = 'cottages:fence_corner_oiled',
+		items = { 'cottages:fence_small_oiled 2' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({ -- upgrade existing fences with oil later at the mixing_spot
+		type = 'mixing_spot',
+		output = 'cottages:fence_corner_oiled',
+		items = { 'cottages:fence_small 4', 'tech:vegetable_oil' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'mixing_spot',
+		output = 'cottages:fence_end_oiled',
+		items = { 'cottages:fence_end', 'tech:vegetable_oil' },
+		level = 1,
+		always_known = true
+	})
+	crafting.register_recipe({
+		type = 'mixing_spot',
+		output = 'cottages:fence_corner_oiled',
+		items = { 'cottages:fence_corner', 'tech:vegetable_oil' },
 		level = 1,
 		always_known = true
 	})

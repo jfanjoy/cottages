@@ -247,6 +247,12 @@ end
 
 minetest.register_node("cottages:table", cottages_table_def );
 
+-- should not affect worlds with no ownership
+local function is_owner(pos, name)
+	local owner = minetest.get_meta(pos):get_string('owner')
+	if owner == "" or owner == name or minetest.check_player_privs(name, "protection_bypass") then return true end
+	return false
+end
 -- looks better than two slabs impersonating a shelf; also more 3d than a bookshelf 
 -- the infotext shows if it's empty or not
 minetest.register_node("cottages:shelf", {
@@ -297,6 +303,20 @@ minetest.register_node("cottages:shelf", {
 	                return inv:is_empty("main");
 	        end,
 
+		allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
+			if is_owner(pos, player:get_player_name()) then return count end
+			return 0
+		end,
+		allow_metadata_inventory_put = function(pos, listname, index, stack, player)
+			if is_owner(pos, player:get_player_name()) and not string.match(stack:get_name(), "backpacks:") then
+				return stack:get_count()
+			end
+			return 0
+		end,
+		allow_metadata_inventory_take = function(pos, listname, index, stack, player)
+			if is_owner(pos, player:get_player_name()) then return stack:get_count() end
+			return 0
+		end,
                 on_metadata_inventory_put  = function(pos, listname, index, stack, player)
 	                local  meta = minetest.get_meta( pos );
                         meta:set_string('infotext', S('open storage shelf (in use)'));
@@ -453,9 +473,9 @@ function set_animation(clicker, animation)
 	end
 end
 
-local function benchrest(name, pos, ppos)
+local function benchrest(animation, name, pos, ppos)
 	if not (isExile and minetest.get_modpath('bed_rest')) then return nil end
-	if bed_rest.pos[name] ~= nil or bed_rest.player[name] ~= nil then
+	if animation == 'stand' then
 		-- sitting
 		bed_rest.pos[name] = nil
 		bed_rest.bed_position[name] = nil
@@ -465,7 +485,7 @@ local function benchrest(name, pos, ppos)
 		-- standing
 		bed_rest.pos[name] = ppos or pos
 		bed_rest.bed_position[name] = pos
-		bed_rest.player[name] = 1
+		bed_rest.player[name] = 2
 		bed_rest.level[name] = 1
 	end
 end
@@ -475,41 +495,36 @@ function togglebenchrest(clicker, pos, player_pos)
 	if not (isExile) then seated_offset.y = -3 end -- 7 seems too low on minetest game but just right on exile
 	local default_offset = { x = 0, y = 0, z = 0 }
 	local name = clicker:get_player_name()
-	local cur_animation = get_animation(clicker)
+	local doing = get_animation(clicker)
+	local animation = 'sit'
+	if doing.animation == 'sit' then animation = 'stand' end
 	if isExile and minetest.get_modpath('bed_rest') then
-		for nm, other_pos in pairs(bed_rest.bed_position) do
-			if vector.distance(pos, other_pos) < 0.1 and nm ~= name then
-				minetest.chat_send_player("find another bench")
-				local meta = minetest.get_meta(pos)
-				minimal.infotest_merge(pos, 'Status: Occupied by '..nm, meta)
-			elseif nm == name then
-				detach_player(clicker)
-				local new_pos = bed_rest.pos[name]
-				benchrest(name, pos, new_pos)
-				clear_player_physics(clicker)
-				clicker:set_pos(new_pos)
-				clicker:set_eye_offset(default_offset, default_offset)
-				set_animation(clicker, 'stand')
-				return true
-			else
-				return false
+		if doing.animation == "stand" then
+			for nm, other_pos in pairs(bed_rest.bed_position) do
+				if vector.distance(pos, other_pos) < 0.1 and nm ~= name then
+					minetest.chat_send_player("find another bench")
+					local meta = minetest.get_meta(pos)
+					minimal.infotest_merge(pos, 'Status: Occupied by '..nm, meta)
+					return false
+				end
 			end
 		end
-		benchrest(name, pos, player_pos)
+		benchrest(animation, name, pos, player_pos)
 	end
-	if cur_animation.animation == "sit" then
+	if doing.animation == "sit" then
+		-- standing
 		detach_player(clicker)
 		clear_player_physics(clicker)
 		clicker:set_eye_offset(default_offset, default_offset)
 		clicker:set_pos({x = pos.x, y = pos.y-0.5, z = pos.z})
-		set_animation(clicker, 'stand')
 	else
-		set_animation(clicker, 'sit')
+		-- sitting
 		set_player_physics(clicker, 0, 0, 0)
 		attach_player(name)
-		clicker:set_pos(pos)
 		clicker:set_eye_offset(seated_offset, default_offset)
+		clicker:set_pos(pos)
 	end
+	set_animation(clicker, animation)
 end
 
 function attach_player(name)
@@ -817,7 +832,7 @@ else
 	crafting.register_recipe({
 		type = "carpentry_bench",
 		output = "cottages:shelf",
-		items = { 'group:log 1', 'tech:vegetable_oil' },
+		items = { 'group:log 4', 'tech:vegetable_oil' },
 		level = 1,
 		always_known = true
 	})
