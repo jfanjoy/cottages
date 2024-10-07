@@ -6,6 +6,8 @@ local S = cottages.S
 ---------------------------------------------------------------------------------------
 -- a better roof than the normal stairs; can be replaced by stairs:stair_wood
 
+local game_info = minetest.get_game_info()
+local isExile = game_info.id == "exile" and minetest.get_modpath('minimal') ~= nil
 
 -- create the three basic roof parts plus receipes for them;
 cottages.register_roof = function( name, tiles, basic_material, homedecor_alternative )
@@ -34,9 +36,13 @@ cottages.register_roof = function( name, tiles, basic_material, homedecor_altern
 		},
 		is_ground_content = false,
 	})
+	if isExile then
+		-- use the roof_tile nodebox
+		minetest.registered_nodes['cottages:roof_'..name].node_box = minetest.registered_nodes['tech:roof_tile'].node_box
+	end
 
    -- a better roof than the normal stairs; this one is for usage directly on top of walls (it has the form of a stair)
-   if( name~="straw" or not(minetest.registered_nodes["stairs:stair_straw"]) or not(cottages.use_farming_straw_stairs)) then
+   if( not(isExile) and (name~="straw" or not(minetest.registered_nodes["stairs:stair_straw"]) or not(cottages.use_farming_straw_stairs))) then
 	minetest.register_node("cottages:roof_connector_"..name, {
 		description = S("Roof connector "..name),
 		drawtype = "nodebox",
@@ -95,56 +101,74 @@ cottages.register_roof = function( name, tiles, basic_material, homedecor_altern
    end
 
 
-   if( not( homedecor_alternative )
-       or ( minetest.get_modpath("homedecor") ~= nil )) then
+   if not( isExile ) then
+	   if( not( homedecor_alternative )
+	       or ( minetest.get_modpath("homedecor") ~= nil )) then
 
-      minetest.register_craft({
-	output = "cottages:roof_"..name.." 6",
-	recipe = {
-		{'', '', basic_material },
-		{'', basic_material, '' },
-		{basic_material, '', '' }
-	}
-      })
+	      minetest.register_craft({
+		output = "cottages:roof_"..name.." 6",
+		recipe = {
+			{'', '', basic_material },
+			{'', basic_material, '' },
+			{basic_material, '', '' }
+		}
+	      })
+	   end
+
+	   -- make those roof parts that use homedecor craftable without that mod
+	   if( homedecor_alternative ) then
+	      basic_material = 'cottages:roof_wood';
+
+	      minetest.register_craft({
+		output = "cottages:roof_"..name.." 3",
+		recipe = {
+			{homedecor_alternative, '', basic_material },
+			{'', basic_material, '' },
+			{basic_material, '', '' }
+		}
+	      })
+	   end
+
+
+	   minetest.register_craft({
+		output = "cottages:roof_connector_"..name,
+		recipe = {
+			{'cottages:roof_'..name },
+			{cottages.craftitem_wood },
+		}
+	   })
+
+	   minetest.register_craft({
+		output = "cottages:roof_flat_"..name..' 2',
+		recipe = {
+			{'cottages:roof_'..name, 'cottages:roof_'..name },
+		}
+	   })
+
+	   -- convert flat roofs back to normal roofs
+	   minetest.register_craft({
+		output = "cottages:roof_"..name,
+		recipe = {
+			{"cottages:roof_flat_"..name, "cottages:roof_flat_"..name }
+		}
+	   })
+   else
+	   -- exile recipes
+	   crafting.register_recipe({
+		   type = 'brick_makers_bench',
+		   output = 'cottages:roof_'..name..' 6',
+		   items = {basic_material, 'nodes_nature:clay_wet'},
+		   level = 1,
+		   always_known = true
+	   })
+	   crafting.register_recipe({
+		   type = 'brick_makers_bench',
+		   output = 'cottages:roof_flat_'..name.. ' 2',
+		   items = {'cottages:roof_'..name.. ' 2'},
+		   level = 1,
+		   always_known = true
+	   })
    end
-
-   -- make those roof parts that use homedecor craftable without that mod
-   if( homedecor_alternative ) then
-      basic_material = 'cottages:roof_wood';
-
-      minetest.register_craft({
-	output = "cottages:roof_"..name.." 3",
-	recipe = {
-		{homedecor_alternative, '', basic_material },
-		{'', basic_material, '' },
-		{basic_material, '', '' }
-	}
-      })
-   end
-
-
-   minetest.register_craft({
-	output = "cottages:roof_connector_"..name,
-	recipe = {
-		{'cottages:roof_'..name },
-		{cottages.craftitem_wood },
-	}
-   })
-
-   minetest.register_craft({
-	output = "cottages:roof_flat_"..name..' 2',
-	recipe = {
-		{'cottages:roof_'..name, 'cottages:roof_'..name },
-	}
-   })
-
-   -- convert flat roofs back to normal roofs
-   minetest.register_craft({
-	output = "cottages:roof_"..name,
-	recipe = {
-	        {"cottages:roof_flat_"..name, "cottages:roof_flat_"..name }
-	}
-   })
 
 end -- of cottages.register_roof( name, tiles, basic_material )
 
@@ -154,42 +178,56 @@ end -- of cottages.register_roof( name, tiles, basic_material )
 ---------------------------------------------------------------------------------------
 -- add the diffrent roof types
 ---------------------------------------------------------------------------------------
+local straw_roof_material = 'cottages:straw_mat'
+local straw_texture = cottages.straw_texture
+local reet_roof_material = cottages.craftitem_papyrus
+local reet_texture = 'cottages_reet.png'
+local wood_roof_material = cottages.craftitem_wood
+local wood_texture = cottages.wood_texture
+if isExile then
+	straw_roof_material = 'nodes_nature:sari'
+	reet_roof_material = 'nodes_nature:tanai'
+	wood_roof_material = 'group:log'
+	wood_texture = 'tech_primitive_wood.png'
+end
 cottages.register_roof( 'straw',
-		{cottages.straw_texture, cottages.straw_texture,
-		 cottages.straw_texture, cottages.straw_texture,
-		 cottages.straw_texture, cottages.straw_texture},
-		'cottages:straw_mat', nil );
+		{straw_texture, straw_texture,
+		 straw_texture, straw_texture,
+		 straw_texture, straw_texture},
+		straw_roof_material.. ' 48', nil );
 cottages.register_roof( 'reet',
-		{"cottages_reet.png","cottages_reet.png",
-		"cottages_reet.png","cottages_reet.png",
-		"cottages_reet.png","cottages_reet.png"},
-		cottages.craftitem_papyrus, nil );
+		{reet_texture, reet_texture,
+		reet_texture, reet_texture,
+		reet_texture, reet_texture},
+		reet_roof_material.. ' 48', nil );
 cottages.register_roof( 'wood',
-		{cottages.textures_roof_wood, cottages.texture_roof_sides,
-		cottages.texture_roof_sides,  cottages.texture_roof_sides,
-		cottages.texture_roof_sides,  cottages.textures_roof_wood},
-		cottages.craftitem_wood, nil);
-cottages.register_roof( 'black',
-		{"cottages_homedecor_shingles_asphalt.png", cottages.texture_roof_sides,
-		cottages.texture_roof_sides, cottages.texture_roof_sides,
-		cottages.texture_roof_sides, "cottages_homedecor_shingles_asphalt.png"},
-		'homedecor:shingles_asphalt', cottages.craftitem_coal_lump);
-cottages.register_roof( 'red',
-		{"cottages_homedecor_shingles_terracotta.png", cottages.texture_roof_sides,
-		cottages.texture_roof_sides, cottages.texture_roof_sides,
-		cottages.texture_roof_sides, "cottages_homedecor_shingles_terracotta.png"},
-		'homedecor:shingles_terracotta', cottages.craftitem_clay_brick);
-cottages.register_roof( 'brown',
-		{"cottages_homedecor_shingles_wood.png", cottages.texture_roof_sides,
-		cottages.texture_roof_sides, cottages.texture_roof_sides,
-		cottages.texture_roof_sides, "cottages_homedecor_shingles_wood.png"},
-		'homedecor:shingles_wood', cottages.craftitem_dirt);
-cottages.register_roof( 'slate',
-		{"cottages_slate.png", cottages.texture_roof_sides,
-		"cottages_slate.png", "cottages_slate.png",
-		cottages.texture_roof_sides,"cottages_slate.png"},
-		cottages.craftitem_stone, nil);
+		{wood_texture, wood_texture,
+		wood_texture, wood_texture,
+		wood_texture, wood_texture},
+		wood_roof_material, nil);
+if not( isExile ) and minetest.get_modpath('homedecor') then
+	cottages.register_roof( 'black',
+			{"cottages_homedecor_shingles_asphalt.png", cottages.texture_roof_sides,
+			cottages.texture_roof_sides, cottages.texture_roof_sides,
+			cottages.texture_roof_sides, "cottages_homedecor_shingles_asphalt.png"},
+			'homedecor:shingles_asphalt', cottages.craftitem_coal_lump);
+	cottages.register_roof( 'red',
+			{"cottages_homedecor_shingles_terracotta.png", cottages.texture_roof_sides,
+			cottages.texture_roof_sides, cottages.texture_roof_sides,
+			cottages.texture_roof_sides, "cottages_homedecor_shingles_terracotta.png"},
+			'homedecor:shingles_terracotta', cottages.craftitem_clay_brick);
+	cottages.register_roof( 'brown',
+			{"cottages_homedecor_shingles_wood.png", cottages.texture_roof_sides,
+			cottages.texture_roof_sides, cottages.texture_roof_sides,
+			cottages.texture_roof_sides, "cottages_homedecor_shingles_wood.png"},
+			'homedecor:shingles_wood', cottages.craftitem_dirt);
+	cottages.register_roof( 'slate',
+			{"cottages_slate.png", cottages.texture_roof_sides,
+			"cottages_slate.png", "cottages_slate.png",
+			cottages.texture_roof_sides,"cottages_slate.png"},
+			cottages.craftitem_stone, nil);
 
+end
 
 ---------------------------------------------------------------------------------------
 -- slate roofs are sometimes on vertical fronts of houses
